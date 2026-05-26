@@ -5,10 +5,71 @@
  * @copyright (C) Soccentric LLC */
 
 #include "lib_base.h"
-#include "platform_rpi5.h"
+#include "platform_pinnacle.h"
 #include <chrono>
+#include <fcntl.h>
 #include <iostream>
 #include <stdexcept>
+#include <sys/stat.h>
+#include <unistd.h>
+
+namespace {
+
+static bool pathExists(const char* path)
+{
+    struct stat st {};
+    return path != nullptr && stat(path, &st) == 0;
+}
+
+static int openRpmsgDevice()
+{
+    int fd = open(PINNACLE_RPMSG_PRIMARY_DEV, O_WRONLY | O_CLOEXEC);
+    if (fd >= 0) {
+        return fd;
+    }
+    return open(PINNACLE_RPMSG_CTRL_DEV, O_WRONLY | O_CLOEXEC);
+}
+
+} // namespace
+
+namespace hal::rt {
+
+ChannelState rpmsgChannelState()
+{
+    if (pathExists(PINNACLE_RPMSG_PRIMARY_DEV) || pathExists(PINNACLE_RPMSG_CTRL_DEV)) {
+        return ChannelState::UP;
+    }
+    return ChannelState::DOWN;
+}
+
+bool rpmsgSend(const std::string& payload)
+{
+    int fd = openRpmsgDevice();
+    if (fd < 0) {
+        return false;
+    }
+
+    ssize_t written = write(fd, payload.c_str(), payload.size());
+    close(fd);
+    return written == static_cast<ssize_t>(payload.size());
+}
+
+bool rpmsgHeartbeat()
+{
+    return rpmsgSend("{\"msg\":\"heartbeat\",\"endpoint\":\"" + std::string(PINNACLE_OPENAMP_ENDPOINT) + "\"}");
+}
+
+bool requestSafeState()
+{
+    return rpmsgSend("{\"msg\":\"safe_state_request\"}");
+}
+
+bool reportSafetyError(const std::string& reason)
+{
+    return rpmsgSend("{\"msg\":\"safety_error\",\"reason\":\"" + reason + "\"}");
+}
+
+} // namespace hal::rt
 
 TestBase::TestBase() : stopped_(true)
 {

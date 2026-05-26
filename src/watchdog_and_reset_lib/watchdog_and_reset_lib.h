@@ -125,6 +125,7 @@ class WatchdogAndResetTesting : public TestBase
      * @return TestOutput with pass/fail and data
      */
     TestOutput testResetReasonLogging();
+    TestOutput testCrossDomainWatchdogHandshake();
 
     /**
      * @brief Get list of all available test names

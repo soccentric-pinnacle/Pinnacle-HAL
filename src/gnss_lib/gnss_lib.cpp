@@ -1,7 +1,7 @@
 /**
  * @file gnss_lib.cpp
- * @brief GNSS tests for Raspberry Pi 5.
- *        Pi5 has NO built-in GNSS receiver.  GNSS capability requires an
+ * @brief GNSS tests for Pinnacle i.MX.
+ *        Pinnacle has NO built-in GNSS receiver.  GNSS capability requires an
  *        external module (e.g. u-blox M10/F9 via UART/SPI/USB).  Tests verify
  *        that the GNSS serial device is present, the gpsd service is running,
  *        and basic NMEA data can be obtained.  If no receiver is connected,
@@ -11,7 +11,7 @@
  */
 
 #include "gnss_lib.h"
-#include "../platform_rpi5.h"
+#include "../platform_pinnacle.h"
 
 #include <array>
 #include <cstdio>
@@ -75,12 +75,12 @@ GnssTesting::~GnssTesting()
 TestOutput GnssTesting::testGpsSignalReception()
 {
     std::vector<std::string> data;
-    data.push_back("=== GPS Signal Reception (Pi5 + External GNSS Module) ===");
-    data.push_back("[INFO] Pi5 has no built-in GNSS; expects external module on UART/USB");
+    data.push_back("=== GPS Signal Reception (Pinnacle + External GNSS Module) ===");
+    data.push_back("[INFO] Pinnacle has no built-in GNSS; expects external module on UART/USB");
 
     // Check for common GNSS serial ports
     static const std::vector<std::string> gnssPorts = {
-        "/dev/ttyAMA0", "/dev/ttyAMA1", "/dev/ttyUSB0", "/dev/ttyACM0"};
+        "/dev/ttyLP0", "/dev/ttyLP1", "/dev/ttyUSB0", "/dev/ttyACM0"};
     bool portFound = false;
     for (const auto& p : gnssPorts)
     {
@@ -126,7 +126,7 @@ TestOutput GnssTesting::testGpsSignalReception()
 TestOutput GnssTesting::testGlonassSupport()
 {
     std::vector<std::string> data;
-    data.push_back("=== GLONASS Support (External GNSS Module, Pi5) ===");
+    data.push_back("=== GLONASS Support (External GNSS Module, Pinnacle) ===");
 
     // Check for GLONASS NMEA sentence ($GLGSV)
     std::string glgsv = gnssRunCmd("timeout 2 gpspipe -r 2>/dev/null | grep -m1 '^\\$GLGSV\\|^\\$GNGSV'");
@@ -140,7 +140,7 @@ TestOutput GnssTesting::testGlonassSupport()
     }
 
     // u-blox module might expose UBX-MON-GNSS
-    std::string ubxInfo = gnssRunCmd("ubxtool -f /dev/ttyAMA0 -p MON-GNSS 2>/dev/null | head -5");
+    std::string ubxInfo = gnssRunCmd("ubxtool -f /dev/ttyLP0 -p MON-GNSS 2>/dev/null | head -5");
     if (!ubxInfo.empty())
         data.push_back("[INFO] UBX MON-GNSS:\n" + ubxInfo);
 
@@ -161,7 +161,7 @@ TestOutput GnssTesting::testGlonassSupport()
 TestOutput GnssTesting::testGalileoSupport()
 {
     std::vector<std::string> data;
-    data.push_back("=== Galileo Support (External GNSS Module, Pi5) ===");
+    data.push_back("=== Galileo Support (External GNSS Module, Pinnacle) ===");
 
     std::string gagsv = gnssRunCmd("timeout 2 gpspipe -r 2>/dev/null | grep -m1 '^\\$GAGSV\\|^\\$GNGSV'");
     if (!gagsv.empty())
@@ -186,7 +186,7 @@ TestOutput GnssTesting::testGalileoSupport()
 TestOutput GnssTesting::testBeidouSupport()
 {
     std::vector<std::string> data;
-    data.push_back("=== BeiDou Support (External GNSS Module, Pi5) ===");
+    data.push_back("=== BeiDou Support (External GNSS Module, Pinnacle) ===");
 
     std::string gbgsv = gnssRunCmd("timeout 2 gpspipe -r 2>/dev/null | grep -m1 '^\\$GBGSV\\|^\\$GNGSV'");
     if (!gbgsv.empty())
@@ -211,7 +211,7 @@ TestOutput GnssTesting::testBeidouSupport()
 TestOutput GnssTesting::testPositionAccuracy()
 {
     std::vector<std::string> data;
-    data.push_back("=== GNSS Position Accuracy (Pi5) ===");
+    data.push_back("=== GNSS Position Accuracy (Pinnacle) ===");
 
     // GGA field 8 = HDOP, field 9 = altitude
     std::string gga = gnssRunCmd("timeout 3 gpspipe -r 2>/dev/null | grep -m1 '^\\$G.GGA'");
@@ -256,7 +256,7 @@ TestOutput GnssTesting::testPositionAccuracy()
 TestOutput GnssTesting::testTimetofirstfix()
 {
     std::vector<std::string> data;
-    data.push_back("=== GNSS Time To First Fix (Pi5) ===");
+    data.push_back("=== GNSS Time To First Fix (Pinnacle) ===");
     data.push_back("[INFO] TTFF measurement requires tracking fix acquisition from cold/warm start");
 
     // Check gpsd fix status via gpspipe JSON
@@ -287,7 +287,7 @@ TestOutput GnssTesting::testTimetofirstfix()
 TestOutput GnssTesting::testGnssAntennaConnection()
 {
     std::vector<std::string> data;
-    data.push_back("=== GNSS Antenna Connection (Pi5) ===");
+    data.push_back("=== GNSS Antenna Connection (Pinnacle) ===");
 
     // Check satellite count from GSV sentence
     std::string gsv = gnssRunCmd("timeout 3 gpspipe -r 2>/dev/null | grep -m1 '^\\$G.GSV'");
@@ -316,7 +316,7 @@ TestOutput GnssTesting::testGnssAntennaConnection()
     }
 
     // Check for antenna-short alarm in u-blox UBX
-    std::string ubxMon = gnssRunCmd("ubxtool -f /dev/ttyAMA0 -p MON-HW 2>/dev/null | grep -i ant");
+    std::string ubxMon = gnssRunCmd("ubxtool -f /dev/ttyLP0 -p MON-HW 2>/dev/null | grep -i ant");
     if (!ubxMon.empty())
         data.push_back("[INFO] UBX antenna status: " + ubxMon);
 
@@ -336,7 +336,7 @@ TestOutput GnssTesting::testGnssAntennaConnection()
 TestOutput GnssTesting::testAgpsFunctionality()
 {
     std::vector<std::string> data;
-    data.push_back("=== AGPS Functionality (Pi5) ===");
+    data.push_back("=== AGPS Functionality (Pinnacle) ===");
     data.push_back("[INFO] AGPS requires internet connectivity to download almanac/ephemeris");
 
     // Check for gpsd with AGPS support

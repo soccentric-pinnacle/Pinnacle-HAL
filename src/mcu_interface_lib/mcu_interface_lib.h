@@ -134,6 +134,8 @@ class McuInterfaceTesting : public TestBase
      * @return TestOutput with pass/fail and data
      */
     TestOutput testMcuSynchronization();
+    TestOutput testRpmsgChannel();
+    TestOutput testMCoreHandshake();
 
     /**
      * @brief Get list of all available test names

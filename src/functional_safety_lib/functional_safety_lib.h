@@ -107,6 +107,8 @@ class FunctionalSafetyTesting : public TestBase
      * @return TestOutput with pass/fail and data
      */
     TestOutput testAsilQsLAndRRailIsolation();
+    TestOutput testSafeStateEntryTransition();
+    TestOutput testLockstepErrorReporting();
 
     /**
      * @brief Get list of all available test names

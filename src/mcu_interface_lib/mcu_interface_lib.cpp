@@ -1,16 +1,16 @@
 /**
  * @file mcu_interface_lib.cpp
- * @brief MCU interface tests for Raspberry Pi 5.
- *        Pi5 can communicate with an external MCU (RP2040, STM32, etc.) via
- *        SPI (/dev/spidev0.0), UART (/dev/ttyAMA0), or I2C (/dev/i2c-1).
+ * @brief MCU interface tests for Pinnacle i.MX.
+ *        Pinnacle can communicate with an external MCU (i.MX RT, STM32, etc.) via
+ *        SPI (/dev/spidev0.0), UART (/dev/ttyLP0), or I2C (/dev/i2c-1).
  *        Tests labelled "testMcuToOrinDataTransfer" and "testMcuDmsInterface"
- *        reference Jetson AGX Orin; they are mapped to Pi5 equivalents.
+ *        reference Jetson AGX Orin; they are mapped to Pinnacle equivalents.
  * @author sandesh ghimire
  * @copyright (C) Lucid Motors
  */
 
 #include "mcu_interface_lib.h"
-#include "../platform_rpi5.h"
+#include "../platform_pinnacle.h"
 
 #include <array>
 #include <cerrno>
@@ -80,7 +80,7 @@ McuInterfaceTesting::~McuInterfaceTesting()
 TestOutput McuInterfaceTesting::testMcuCommunicationInterface()
 {
     std::vector<std::string> data;
-    data.push_back("=== MCU Communication Interfaces (Pi5 → RP2040/STM32) ===");
+    data.push_back("=== MCU Communication Interfaces (Pinnacle → i.MX RT/STM32) ===");
 
     // SPI
     bool spiOk = mcuPathExists("/dev/spidev0.0");
@@ -88,9 +88,9 @@ TestOutput McuInterfaceTesting::testMcuCommunicationInterface()
                          : "[INFO] /dev/spidev0.0 not found (dtparam=spi=on)");
 
     // UART
-    bool uartOk = mcuPathExists("/dev/ttyAMA0");
-    data.push_back(uartOk ? "[PASS] UART /dev/ttyAMA0 present"
-                          : "[INFO] /dev/ttyAMA0 not found (dtparam=uart0=on)");
+    bool uartOk = mcuPathExists("/dev/ttyLP0");
+    data.push_back(uartOk ? "[PASS] UART /dev/ttyLP0 present"
+                          : "[INFO] /dev/ttyLP0 not found (dtparam=uart0=on)");
 
     // I2C
     bool i2cOk = mcuPathExists("/dev/i2c-1");
@@ -98,8 +98,8 @@ TestOutput McuInterfaceTesting::testMcuCommunicationInterface()
                          : "[INFO] /dev/i2c-1 not found (dtparam=i2c_arm=on)");
 
     // GPIO chip (needed for chip-select / IRQ)
-    bool gpioOk = mcuPathExists(RPI5_GPIOCHIP_PATH);
-    data.push_back(gpioOk ? "[PASS] GPIO chip " + std::string(RPI5_GPIOCHIP_PATH) + " present"
+    bool gpioOk = mcuPathExists(PINNACLE_GPIOCHIP_PATH);
+    data.push_back(gpioOk ? "[PASS] GPIO chip " + std::string(PINNACLE_GPIOCHIP_PATH) + " present"
                           : "[WARN] GPIO chip not found");
 
     bool anyOk = spiOk || uartOk || i2cOk;
@@ -119,12 +119,12 @@ TestOutput McuInterfaceTesting::testMcuCommunicationInterface()
 TestOutput McuInterfaceTesting::testMcuFirmwareOperation()
 {
     std::vector<std::string> data;
-    data.push_back("=== MCU Firmware Operation (Pi5 UART probe) ===");
+    data.push_back("=== MCU Firmware Operation (Pinnacle UART probe) ===");
 
-    if (!mcuPathExists("/dev/ttyAMA0"))
+    if (!mcuPathExists("/dev/ttyLP0"))
     {
-        data.push_back("[INFO] /dev/ttyAMA0 not available — skipping firmware probe");
-        data.push_back("[INFO] Connect MCU (RP2040/STM32) TX→Pi5 UART0 RX for this test");
+        data.push_back("[INFO] /dev/ttyLP0 not available — skipping firmware probe");
+        data.push_back("[INFO] Connect MCU (i.MX RT/STM32) TX→Pinnacle UART0 RX for this test");
         {
             TestOutput _out;
             _out.status = hal::Status::PASS;
@@ -136,16 +136,16 @@ TestOutput McuInterfaceTesting::testMcuFirmwareOperation()
     }
 
     // Check UART is not being used by another process
-    std::string uartProc = mcuRunCmd("fuser /dev/ttyAMA0 2>/dev/null");
+    std::string uartProc = mcuRunCmd("fuser /dev/ttyLP0 2>/dev/null");
     if (!uartProc.empty())
     {
-        data.push_back("[INFO] /dev/ttyAMA0 in use by PID: " + uartProc + " (likely serial-getty)");
+        data.push_back("[INFO] /dev/ttyLP0 in use by PID: " + uartProc + " (likely serial-getty)");
     }
 
     // Check serial port settings
-    std::string stty = mcuRunCmd("stty -F /dev/ttyAMA0 2>/dev/null");
-    data.push_back(stty.empty() ? "[INFO] Cannot query ttyAMA0 settings"
-                                : "[INFO] ttyAMA0 settings: " + stty);
+    std::string stty = mcuRunCmd("stty -F /dev/ttyLP0 2>/dev/null");
+    data.push_back(stty.empty() ? "[INFO] Cannot query ttyLP0 settings"
+                                : "[INFO] ttyLP0 settings: " + stty);
 
     data.push_back("[INFO] MCU firmware test requires MCU running echo firmware");
     data.push_back("[INFO] Expected: send 0xAA 0x55; receive 0x55 0xAA (loopback)");
@@ -160,14 +160,14 @@ TestOutput McuInterfaceTesting::testMcuFirmwareOperation()
 }
 
 /**
- * @brief Verify MCU watchdog functionality (check Pi5 hardware watchdog as proxy).
+ * @brief Verify MCU watchdog functionality (check Pinnacle hardware watchdog as proxy).
  */
 TestOutput McuInterfaceTesting::testMcuWatchdog()
 {
     std::vector<std::string> data;
-    data.push_back("=== MCU Watchdog (Pi5 RP1 WDT proxy) ===");
+    data.push_back("=== MCU Watchdog (Pinnacle mcore WDT proxy) ===");
 
-    // RP1 hardware watchdog (acts as board-level safety monitor)
+    // mcore hardware watchdog (acts as board-level safety monitor)
     bool wdPresent = mcuPathExists("/dev/watchdog0");
     data.push_back(wdPresent ? "[PASS] Hardware watchdog /dev/watchdog0 available"
                              : "[WARN] No watchdog device");
@@ -178,8 +178,8 @@ TestOutput McuInterfaceTesting::testMcuWatchdog()
                                   : "[INFO] Watchdog info:\n" + wdInfo);
 
     // For MCU watchdog: MCU should receive periodic heartbeat via SPI/UART
-    data.push_back("[INFO] MCU watchdog expects periodic 0x5A heartbeat on SPI/UART from Pi5");
-    data.push_back("[INFO] MCU resets Pi5 via nRESET GPIO if heartbeat stops");
+    data.push_back("[INFO] MCU watchdog expects periodic 0x5A heartbeat on SPI/UART from Pinnacle");
+    data.push_back("[INFO] MCU resets Pinnacle via nRESET GPIO if heartbeat stops");
 
     {
         TestOutput _out;
@@ -197,11 +197,11 @@ TestOutput McuInterfaceTesting::testMcuWatchdog()
 TestOutput McuInterfaceTesting::testMcuGpioInterface()
 {
     std::vector<std::string> data;
-    data.push_back("=== MCU GPIO Interface (Pi5 GPIO header) ===");
+    data.push_back("=== MCU GPIO Interface (Pinnacle GPIO header) ===");
 
     // gpiochip info
-    bool gpioChipOk = mcuPathExists(RPI5_GPIOCHIP_PATH);
-    data.push_back(gpioChipOk ? "[PASS] " + std::string(RPI5_GPIOCHIP_PATH) + " present"
+    bool gpioChipOk = mcuPathExists(PINNACLE_GPIOCHIP_PATH);
+    data.push_back(gpioChipOk ? "[PASS] " + std::string(PINNACLE_GPIOCHIP_PATH) + " present"
                               : "[WARN] GPIO chip not found");
 
     // Available GPIO lines
@@ -288,16 +288,16 @@ TestOutput McuInterfaceTesting::testMcuSpiInterface()
 }
 
 /**
- * @brief Verify MCU UART interface: check /dev/ttyAMA0 parameters.
+ * @brief Verify MCU UART interface: check /dev/ttyLP0 parameters.
  */
 TestOutput McuInterfaceTesting::testMcuUartInterface()
 {
     std::vector<std::string> data;
-    data.push_back("=== MCU UART Interface (/dev/ttyAMA0) ===");
+    data.push_back("=== MCU UART Interface (/dev/ttyLP0) ===");
 
-    if (!mcuPathExists("/dev/ttyAMA0"))
+    if (!mcuPathExists("/dev/ttyLP0"))
     {
-        data.push_back("[INFO] /dev/ttyAMA0 not present (dtparam=uart0=on)");
+        data.push_back("[INFO] /dev/ttyLP0 not present (dtparam=uart0=on)");
         {
             TestOutput _out;
             _out.status = hal::Status::FAIL;
@@ -308,18 +308,18 @@ TestOutput McuInterfaceTesting::testMcuUartInterface()
         }
     }
 
-    data.push_back("[PASS] /dev/ttyAMA0 present");
+    data.push_back("[PASS] /dev/ttyLP0 present");
 
     // Baud rate
-    std::string baud = mcuRunCmd("stty -F /dev/ttyAMA0 2>/dev/null | grep -oE '[0-9]{4,}'");
+    std::string baud = mcuRunCmd("stty -F /dev/ttyLP0 2>/dev/null | grep -oE '[0-9]{4,}'");
     data.push_back("[INFO] Configured baud: " + (baud.empty() ? "N/A" : baud));
 
     // Check if serial-getty is occupying the port
     std::string getty = mcuRunCmd(
-        "systemctl is-active serial-getty@ttyAMA0 2>/dev/null");
-    data.push_back("[INFO] serial-getty@ttyAMA0: " + (getty.empty() ? "inactive" : getty));
+        "systemctl is-active serial-getty@ttyLP0 2>/dev/null");
+    data.push_back("[INFO] serial-getty@ttyLP0: " + (getty.empty() ? "inactive" : getty));
     if (getty == "active")
-        data.push_back("[INFO] Disable getty for MCU use: systemctl stop serial-getty@ttyAMA0");
+        data.push_back("[INFO] Disable getty for MCU use: systemctl stop serial-getty@ttyLP0");
 
     {
         TestOutput _out;
@@ -332,15 +332,15 @@ TestOutput McuInterfaceTesting::testMcuUartInterface()
 }
 
 /**
- * @brief Driver Monitoring System interface (N/A on Pi5 standalone).
- *        Tests SPI/UART channel used for DMS camera readout on Pi5.
+ * @brief Driver Monitoring System interface (N/A on Pinnacle standalone).
+ *        Tests SPI/UART channel used for DMS camera readout on Pinnacle.
  */
 TestOutput McuInterfaceTesting::testMcuDmsInterface()
 {
     std::vector<std::string> data;
-    data.push_back("=== MCU DMS Interface (Pi5 proxy) ===");
+    data.push_back("=== MCU DMS Interface (Pinnacle proxy) ===");
     data.push_back("[INFO] DMS (Driver Monitoring System) is application-specific");
-    data.push_back("[INFO] On Pi5 a DMS MCU would connect via USB-HID or UART");
+    data.push_back("[INFO] On Pinnacle a DMS MCU would connect via USB-HID or UART");
 
     // Check for USB HID devices (potential DMS MCU)
     std::string hidDevs = mcuRunCmd("ls /dev/hidraw* 2>/dev/null");
@@ -364,28 +364,28 @@ TestOutput McuInterfaceTesting::testMcuDmsInterface()
 }
 
 /**
- * @brief MCU-to-Pi5 data transfer (replaces Jetson testMcuToOrinDataTransfer).
+ * @brief MCU-to-Pinnacle data transfer (replaces Jetson testMcuToOrinDataTransfer).
  * @details Verifies end-to-end message transfer over SPI or UART between MCU
- *          and Pi5.  Without a physical MCU, checks loopback capability.
+ *          and Pinnacle.  Without a physical MCU, checks loopback capability.
  */
 TestOutput McuInterfaceTesting::testMcuToOrinDataTransfer()
 {
     std::vector<std::string> data;
-    data.push_back("=== MCU-to-Pi5 Data Transfer (SPI/UART) ===");
-    data.push_back("[INFO] Function name 'testMcuToOrinDataTransfer' refers to Jetson; Pi5 equivalent used");
+    data.push_back("=== MCU-to-Pinnacle Data Transfer (SPI/UART) ===");
+    data.push_back("[INFO] Function name 'testMcuToOrinDataTransfer' refers to Jetson; Pinnacle equivalent used");
 
     bool spiOk = mcuPathExists("/dev/spidev0.0");
-    bool uartOk = mcuPathExists("/dev/ttyAMA0");
+    bool uartOk = mcuPathExists("/dev/ttyLP0");
 
     if (spiOk)
     {
         data.push_back("[PASS] SPI /dev/spidev0.0 available for MCU data transfer");
-        data.push_back("[INFO] Max SPI speed: 25 MHz (RP2040-limited); Pi5 SPI supports 125 MHz");
+        data.push_back("[INFO] Max SPI speed: 25 MHz (i.MX RT-limited); Pinnacle SPI supports 125 MHz");
     }
     if (uartOk)
     {
-        data.push_back("[PASS] UART /dev/ttyAMA0 available for MCU data transfer");
-        data.push_back("[INFO] UART baud range: 9600 – 921600 bps (Pi5 PL011)");
+        data.push_back("[PASS] UART /dev/ttyLP0 available for MCU data transfer");
+        data.push_back("[INFO] UART baud range: 9600 – 921600 bps (Pinnacle PL011)");
     }
     if (!spiOk && !uartOk)
         data.push_back("[WARN] Neither SPI nor UART available for MCU data transfer");
@@ -401,13 +401,13 @@ TestOutput McuInterfaceTesting::testMcuToOrinDataTransfer()
 }
 
 /**
- * @brief Secondary MCU redundancy check (e.g. dual RP2040 co-processors).
+ * @brief Secondary MCU redundancy check (e.g. dual i.MX RT co-processors).
  */
 TestOutput McuInterfaceTesting::testSecondaryMcuRedundancy()
 {
     std::vector<std::string> data;
-    data.push_back("=== Secondary MCU Redundancy (Pi5) ===");
-    data.push_back("[INFO] Pi5 supports two SPI buses (SPI0, SPI1) for dual-MCU topology");
+    data.push_back("=== Secondary MCU Redundancy (Pinnacle) ===");
+    data.push_back("[INFO] Pinnacle supports two SPI buses (SPI0, SPI1) for dual-MCU topology");
 
     bool spi0 = mcuPathExists("/dev/spidev0.0");
     bool spi1 = mcuPathExists("/dev/spidev1.0");
@@ -415,7 +415,7 @@ TestOutput McuInterfaceTesting::testSecondaryMcuRedundancy()
     data.push_back(spi1 ? "[PASS] Secondary MCU: /dev/spidev1.0" : "[INFO] No secondary SPI MCU (/dev/spidev1.0)");
 
     // Check for second UART
-    bool uart1 = mcuPathExists("/dev/ttyAMA1") || mcuPathExists("/dev/ttyAMA10");
+    bool uart1 = mcuPathExists("/dev/ttyLP1") || mcuPathExists("/dev/ttyLP10");
     data.push_back(uart1 ? "[PASS] Secondary UART found" : "[INFO] No secondary UART MCU path");
 
     {
@@ -434,7 +434,7 @@ TestOutput McuInterfaceTesting::testSecondaryMcuRedundancy()
 TestOutput McuInterfaceTesting::testMcuFailoverMechanism()
 {
     std::vector<std::string> data;
-    data.push_back("=== MCU Failover Mechanism (Pi5) ===");
+    data.push_back("=== MCU Failover Mechanism (Pinnacle) ===");
     data.push_back("[INFO] MCU failover requires hardware: watchdog signal + GPIO nRESET + secondary SPI");
 
     // Check both SPI buses
@@ -459,12 +459,12 @@ TestOutput McuInterfaceTesting::testMcuFailoverMechanism()
 }
 
 /**
- * @brief MCU synchronization: time-sync between Pi5 and MCU via PPS / SPI timestamp.
+ * @brief MCU synchronization: time-sync between Pinnacle and MCU via PPS / SPI timestamp.
  */
 TestOutput McuInterfaceTesting::testMcuSynchronization()
 {
     std::vector<std::string> data;
-    data.push_back("=== MCU Synchronization (Pi5 PPS / SPI timestamp) ===");
+    data.push_back("=== MCU Synchronization (Pinnacle PPS / SPI timestamp) ===");
 
     // Check for PPS device (MCU may provide 1 PPS signal)
     bool ppsOk = mcuPathExists("/dev/pps0");
@@ -486,6 +486,61 @@ TestOutput McuInterfaceTesting::testMcuSynchronization()
         TestOutput _out;
         _out.status = hal::Status::PASS;
         _out.severity = hal::Severity::INFO;
+        for (size_t _i = 0; _i < data.size(); ++_i)
+            _out.reason["detail_" + std::to_string(_i)] = data[_i];
+        return _out;
+    }
+}
+
+TestOutput McuInterfaceTesting::testRpmsgChannel()
+{
+    std::vector<std::string> data;
+    bool ok = false;
+
+    auto state = hal::rt::rpmsgChannelState();
+    if (state == hal::rt::ChannelState::UP) {
+        ok = true;
+        data.push_back("[PASS] RPMsg channel present");
+    } else if (state == hal::rt::ChannelState::DOWN) {
+        data.push_back("[FAIL] RPMsg channel missing");
+    } else {
+        data.push_back("[FAIL] RPMsg channel error state");
+    }
+
+    bool hb = hal::rt::rpmsgHeartbeat();
+    data.push_back(hb ? "[PASS] RPMsg heartbeat sent to Cortex-M"
+                      : "[WARN] RPMsg heartbeat send failed");
+    ok = ok && hb;
+
+    {
+        TestOutput _out;
+        _out.status = ok ? hal::Status::PASS : hal::Status::FAIL;
+        _out.severity = ok ? hal::Severity::INFO : hal::Severity::ERROR;
+        for (size_t _i = 0; _i < data.size(); ++_i)
+            _out.reason["detail_" + std::to_string(_i)] = data[_i];
+        return _out;
+    }
+}
+
+TestOutput McuInterfaceTesting::testMCoreHandshake()
+{
+    std::vector<std::string> data;
+    bool ok = true;
+
+    bool sent = hal::rt::rpmsgSend("{\"msg\":\"mcore_handshake\",\"version\":1}");
+    data.push_back(sent ? "[PASS] M-core handshake request sent"
+                        : "[FAIL] M-core handshake request failed");
+    ok = ok && sent;
+
+    bool errorPath = hal::rt::reportSafetyError("mcore-handshake-self-test");
+    data.push_back(errorPath ? "[PASS] Safety error-report path reachable"
+                             : "[WARN] Safety error-report path unavailable");
+    ok = ok && errorPath;
+
+    {
+        TestOutput _out;
+        _out.status = ok ? hal::Status::PASS : hal::Status::FAIL;
+        _out.severity = ok ? hal::Severity::INFO : hal::Severity::ERROR;
         for (size_t _i = 0; _i < data.size(); ++_i)
             _out.reason["detail_" + std::to_string(_i)] = data[_i];
         return _out;
@@ -676,6 +731,38 @@ std::vector<TestResult> McuInterfaceTesting::runAllTests()
         }
     }
 
+    // Run testRpmsgChannel
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+        TestOutput result = testRpmsgChannel();
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end - start;
+        {
+            TestResult _tr;
+            _tr.name = "testRpmsgChannel";
+            _tr.test_id = "testRpmsgChannel";
+            _tr.duration = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
+            _tr.output = result;
+            results.push_back(_tr);
+        }
+    }
+
+    // Run testMCoreHandshake
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+        TestOutput result = testMCoreHandshake();
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end - start;
+        {
+            TestResult _tr;
+            _tr.name = "testMCoreHandshake";
+            _tr.test_id = "testMCoreHandshake";
+            _tr.duration = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
+            _tr.output = result;
+            results.push_back(_tr);
+        }
+    }
+
     return results;
 }
 
@@ -689,6 +776,7 @@ std::vector<std::string> McuInterfaceTesting::getAvailableTests()
         "testMcuCommunicationInterface", "testMcuFirmwareOperation", "testMcuWatchdog",        "testMcuGpioInterface",
         "testMcuSpiInterface",           "testMcuUartInterface",     "testMcuDmsInterface",    "testMcuToOrinDataTransfer",
         "testSecondaryMcuRedundancy",    "testMcuFailoverMechanism", "testMcuSynchronization",
+        "testRpmsgChannel",              "testMCoreHandshake",
     };
 }
 
@@ -727,6 +815,10 @@ TestResult McuInterfaceTesting::runSingleTest(const std::string& testName)
         result = testMcuFailoverMechanism();
     } else if (testName == "testMcuSynchronization") {
         result = testMcuSynchronization();
+    } else if (testName == "testRpmsgChannel") {
+        result = testRpmsgChannel();
+    } else if (testName == "testMCoreHandshake") {
+        result = testMCoreHandshake();
     } else {
         // Unknown test name
         auto end = std::chrono::high_resolution_clock::now();

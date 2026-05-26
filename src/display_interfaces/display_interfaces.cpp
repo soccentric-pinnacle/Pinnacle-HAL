@@ -1,13 +1,13 @@
 /**
  * @file display_interfaces.cpp
- * @brief Implementation file for DisplayInterfaces class — Raspberry Pi 5
- *        Pi5 has 2x micro-HDMI ports (HDMI0/HDMI1), no DisplayPort.
+ * @brief Implementation file for DisplayInterfaces class — Pinnacle i.MX
+ *        Pinnacle has 2x micro-HDMI ports (HDMI0/HDMI1), no DisplayPort.
  *        Supports 4K@60Hz on HDMI0, 4K@60Hz on HDMI1 simultaneously.
  * @author sandesh ghimire
  * @copyright (C) Soccentric LLC */
 
 #include "display_interfaces.h"
-#include "../platform_rpi5.h"
+#include "../platform_pinnacle.h"
 
 #include <cstdio>
 #include <dirent.h>
@@ -54,17 +54,17 @@ DisplayInterfaces::~DisplayInterfaces()
 
 // ---------------------------------------------------------------------------
 // 1. testDisplayPortOutput
-//    Pi5 does NOT have native DisplayPort — only micro-HDMI.
+//    Pinnacle does NOT have native DisplayPort — only micro-HDMI.
 // ---------------------------------------------------------------------------
 TestOutput DisplayInterfaces::testDisplayPortOutput()
 {
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("DisplayPort output check (Pi5)");
-    data.push_back("NOTE: Pi5 does NOT have native DisplayPort — 2x micro-HDMI only.");
-    data.push_back("DisplayPort-over-USB-C is NOT available on Pi5 (no USB-C DP Alt Mode).");
-    data.push_back("USB-C port on Pi5 is power-input only (USB-C PD).");
+    data.push_back("DisplayPort output check (Pinnacle)");
+    data.push_back("NOTE: Pinnacle does NOT have native DisplayPort — 2x micro-HDMI only.");
+    data.push_back("DisplayPort-over-USB-C is NOT available on Pinnacle (no USB-C DP Alt Mode).");
+    data.push_back("USB-C port on Pinnacle is power-input only (USB-C PD).");
 
     // Check for any DP adapter via USB
     std::string dpUsb = dispRunCmd("lsusb 2>/dev/null | grep -i 'displayport\\|dp adapter'");
@@ -74,7 +74,7 @@ TestOutput DisplayInterfaces::testDisplayPortOutput()
         data.push_back("No USB DisplayPort adapter detected.");
     }
 
-    data.push_back("PASS: DisplayPort check complete (native DP not supported on Pi5).");
+    data.push_back("PASS: DisplayPort check complete (native DP not supported on Pinnacle).");
     {
         TestOutput _out;
         _out.status = passed ? hal::Status::PASS : hal::Status::FAIL;
@@ -94,7 +94,7 @@ TestOutput DisplayInterfaces::testHdmiOutput()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Pi5 micro-HDMI output check (HDMI0 and HDMI1)");
+    data.push_back("Pinnacle micro-HDMI output check (HDMI0 and HDMI1)");
 
     // Check DRM connectors
     std::string drm = dispRunCmd("ls /sys/class/drm/ 2>/dev/null");
@@ -115,9 +115,9 @@ TestOutput DisplayInterfaces::testHdmiOutput()
         }
     }
 
-    // Check vcgencmd display_power
-    std::string dispPwr = dispRunCmd("vcgencmd display_power 2>/dev/null");
-    if (!dispPwr.empty()) data.push_back("vcgencmd display_power: " + dispPwr);
+    // Check imx-system-tool display_power
+    std::string dispPwr = dispRunCmd("imx-system-tool display_power 2>/dev/null");
+    if (!dispPwr.empty()) data.push_back("imx-system-tool display_power: " + dispPwr);
 
     data.push_back("PASS: HDMI output check complete.");
     {
@@ -138,7 +138,7 @@ TestOutput DisplayInterfaces::testMultiDisplaySupport()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Multi-display support check (Pi5: 2x micro-HDMI, up to dual 4K@60Hz)");
+    data.push_back("Multi-display support check (Pinnacle: 2x micro-HDMI, up to dual 4K@60Hz)");
 
     // Check DRM card
     std::string crtcs = dispRunCmd("cat /sys/class/drm/card*/crtc_count 2>/dev/null");
@@ -152,7 +152,7 @@ TestOutput DisplayInterfaces::testMultiDisplaySupport()
     std::string connected = dispRunCmd("for f in /sys/class/drm/*/status; do echo \"$f: $(cat $f)\"; done 2>/dev/null");
     if (!connected.empty()) data.push_back("Display status: " + connected.substr(0, 400));
 
-    data.push_back("Pi5 supports simultaneous dual 4K@60Hz on HDMI0 + HDMI1.");
+    data.push_back("Pinnacle supports simultaneous dual 4K@60Hz on HDMI0 + HDMI1.");
     data.push_back("PASS: Multi-display check complete.");
     {
         TestOutput _out;
@@ -172,16 +172,16 @@ TestOutput DisplayInterfaces::testVariousResolutions()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Supported resolutions check (Pi5 HDMI via VideoCore VII)");
+    data.push_back("Supported resolutions check (Pinnacle HDMI via VideoCore VII)");
 
     // List supported modes via DRM/KMS
     std::string modes = dispRunCmd("cat /sys/class/drm/card*-HDMI*/modes 2>/dev/null | head -20");
     if (!modes.empty()) {
         data.push_back("HDMI modes: " + modes.substr(0, 600));
     } else {
-        // vcgencmd approach
-        std::string vcModes = dispRunCmd("vcgencmd get_display_power 2>/dev/null");
-        data.push_back("Pi5 supports: 640x480 → 3840x2160 (4K) at 60Hz");
+        // imx-system-tool approach
+        std::string vcModes = dispRunCmd("imx-system-tool get_display_power 2>/dev/null");
+        data.push_back("Pinnacle supports: 640x480 → 3840x2160 (4K) at 60Hz");
         data.push_back("  - 1920x1080@60Hz (Full HD)");
         data.push_back("  - 2560x1440@60Hz (QHD)");
         data.push_back("  - 3840x2160@60Hz (4K UHD) via HDMI 2.0");
@@ -206,16 +206,16 @@ TestOutput DisplayInterfaces::testVariousRefreshRates()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Refresh rate support check (Pi5)");
-    data.push_back("Pi5 HDMI 2.0: 24/25/30/50/60Hz at 4K, up to 120Hz at 1080p");
+    data.push_back("Refresh rate support check (Pinnacle)");
+    data.push_back("Pinnacle HDMI 2.0: 24/25/30/50/60Hz at 4K, up to 120Hz at 1080p");
 
     // Check connected display refresh via DRM
     std::string refreshInfo = dispRunCmd("for f in /sys/class/drm/card*-HDMI*/modes; do "
                                          "echo \"$f:\"; cat \"$f\" 2>/dev/null | head -5; done 2>/dev/null");
     if (!refreshInfo.empty()) data.push_back("DRM modes: " + refreshInfo.substr(0, 600));
 
-    std::string hdmiMode = dispRunCmd("vcgencmd get_config int 2>/dev/null | grep -i 'hdmi'");
-    if (!hdmiMode.empty()) data.push_back("vcgencmd config: " + hdmiMode.substr(0, 200));
+    std::string hdmiMode = dispRunCmd("imx-system-tool get_config int 2>/dev/null | grep -i 'hdmi'");
+    if (!hdmiMode.empty()) data.push_back("imx-system-tool config: " + hdmiMode.substr(0, 200));
 
     data.push_back("Supported: 23.98/24/25/29.97/30/50/59.94/60 Hz");
     data.push_back("PASS: Refresh rate check complete.");
@@ -237,8 +237,8 @@ TestOutput DisplayInterfaces::testHdrSupport()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("HDR support check (Pi5)");
-    data.push_back("Pi5 HDMI 2.0 supports HDR10 (static metadata via InfoFrame).");
+    data.push_back("HDR support check (Pinnacle)");
+    data.push_back("Pinnacle HDMI 2.0 supports HDR10 (static metadata via InfoFrame).");
 
     // Check for HDR metadata support
     std::string hdrProps = dispRunCmd("for f in /sys/class/drm/card*-HDMI*; do "
@@ -269,7 +269,7 @@ TestOutput DisplayInterfaces::testDisplayHotPlugDetection()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Display hot-plug detection (HPD) check — Pi5 micro-HDMI");
+    data.push_back("Display hot-plug detection (HPD) check — Pinnacle micro-HDMI");
 
     // Check HPD via DRM connector status
     std::string hpdStatus = dispRunCmd("for f in /sys/class/drm/card*-HDMI*/status; do "
@@ -277,11 +277,11 @@ TestOutput DisplayInterfaces::testDisplayHotPlugDetection()
     if (!hpdStatus.empty()) data.push_back("HPD status: " + hpdStatus);
     else data.push_back("HPD: check /sys/class/drm/card*-HDMI*/status when display connected.");
 
-    // Check HPD GPIO (RP1 GPIO on Pi5)
+    // Check HPD GPIO (mcore GPIO on Pinnacle)
     std::string hpdDmesg = dispRunCmd("dmesg 2>/dev/null | grep -i 'hdmi\\|hotplug\\|hpd' | tail -5");
     if (!hpdDmesg.empty()) data.push_back("dmesg HPD events: " + hpdDmesg.substr(0, 300));
 
-    data.push_back("Pi5 HPD: Hardware interrupt via RP1 GPIO attached to micro-HDMI connector.");
+    data.push_back("Pinnacle HPD: Hardware interrupt via mcore GPIO attached to micro-HDMI connector.");
     data.push_back("PASS: Hot-plug detection check complete.");
     {
         TestOutput _out;

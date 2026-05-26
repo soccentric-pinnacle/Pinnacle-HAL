@@ -84,6 +84,32 @@ struct TestResult {
     std::vector<TestResult> subtests;
 };
 
+namespace rt {
+
+/// Lightweight contract for A-core <-> M-core link checks used by test modules.
+enum class ChannelState {
+    UP,
+    DOWN,
+    ERROR,
+};
+
+/// Best-effort RPMsg/OpenAMP channel probe.
+ChannelState rpmsgChannelState();
+
+/// Sends a text payload over RPMsg when available; returns false on transport failure.
+bool rpmsgSend(const std::string& payload);
+
+/// Sends a heartbeat payload and checks channel availability.
+bool rpmsgHeartbeat();
+
+/// Requests safe-state transition on the real-time core.
+bool requestSafeState();
+
+/// Reports an error condition to the real-time core.
+bool reportSafetyError(const std::string& reason);
+
+} // namespace rt
+
 } // namespace hal
 
 // Bring canonical types into the global namespace for backward compatibility

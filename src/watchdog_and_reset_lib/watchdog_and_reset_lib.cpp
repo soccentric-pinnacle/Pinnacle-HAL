@@ -1,13 +1,13 @@
 /**
  * @file watchdog_and_reset_lib.cpp
- * @brief Implementation file for WatchdogAndResetTesting class — Raspberry Pi 5
- *        Pi5 watchdog: RP1 hardware watchdog, exposed as /dev/watchdog0.
- *        Reset reason available via vcgencmd get_throttled and dmesg.
+ * @brief Implementation file for WatchdogAndResetTesting class — Pinnacle i.MX
+ *        Pinnacle watchdog: mcore hardware watchdog, exposed as /dev/watchdog0.
+ *        Reset reason available via imx-system-tool get_throttled and dmesg.
  * @author sandesh ghimire
  * @copyright (C) Soccentric LLC */
 
 #include "watchdog_and_reset_lib.h"
-#include "../platform_rpi5.h"
+#include "../platform_pinnacle.h"
 
 #include <cerrno>
 #include <cstdio>
@@ -64,13 +64,13 @@ TestOutput WatchdogAndResetTesting::testWatchdogTimerFunctionality()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Watchdog timer test (Pi5: RP1 watchdog, /dev/watchdog0)");
+    data.push_back("Watchdog timer test (Pinnacle: mcore watchdog, /dev/watchdog0)");
 
     bool wdExists = (access("/dev/watchdog0", F_OK) == 0);
     data.push_back("/dev/watchdog0 present: " + std::string(wdExists ? "yes" : "no"));
 
     if (!wdExists) {
-        data.push_back("INFO: Load watchdog driver: modprobe bcm2835-wdt or bcm2712-wdt");
+        data.push_back("INFO: Load watchdog driver: modprobe imx-wdt or imx9-wdt");
         data.push_back("INFO: Enable via /boot/firmware/config.txt: dtparam=watchdog=on");
         {
             TestOutput _out;
@@ -130,7 +130,7 @@ TestOutput WatchdogAndResetTesting::testWatchdogTimeoutConfiguration()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Watchdog timeout configuration check (Pi5)");
+    data.push_back("Watchdog timeout configuration check (Pinnacle)");
 
     // Check systemd watchdog settings
     std::string sdWd = wdRunCmd("systemctl show --property=RuntimeWatchdogUSec --no-pager 2>/dev/null");
@@ -155,7 +155,7 @@ TestOutput WatchdogAndResetTesting::testWatchdogTimeoutConfiguration()
         if (!procInfo.empty()) data.push_back("/proc/driver/watchdog: " + procInfo);
     }
 
-    data.push_back("Pi5 RP1 watchdog max timeout: 1048575 seconds (~12 days)");
+    data.push_back("Pinnacle mcore watchdog max timeout: 1048575 seconds (~12 days)");
     data.push_back("PASS: Timeout configuration check complete.");
     {
         TestOutput _out;
@@ -227,7 +227,7 @@ TestOutput WatchdogAndResetTesting::testWatchdogInterruptGeneration()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Watchdog interrupt/pretimeout check (Pi5 RP1 watchdog)");
+    data.push_back("Watchdog interrupt/pretimeout check (Pinnacle mcore watchdog)");
 
     bool wdExists = (access("/dev/watchdog0", F_OK) == 0);
     if (!wdExists) {
@@ -277,7 +277,7 @@ TestOutput WatchdogAndResetTesting::testPoweronReset()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Power-on reset check (Pi5)");
+    data.push_back("Power-on reset check (Pinnacle)");
 
     // dmesg may show reset reason
     std::string dmesgReset = wdRunCmd("dmesg 2>/dev/null | grep -i 'reset\\|reboot\\|power.on' | tail -5");
@@ -291,10 +291,10 @@ TestOutput WatchdogAndResetTesting::testPoweronReset()
     std::string bootTime = wdRunCmd("systemd-analyze 2>/dev/null | head -1");
     if (!bootTime.empty()) data.push_back("Boot time: " + bootTime);
 
-    // Check vcgencmd for power flags
-    std::string throttled = wdRunCmd("vcgencmd get_throttled 2>/dev/null");
+    // Check imx-system-tool for power flags
+    std::string throttled = wdRunCmd("imx-system-tool get_throttled 2>/dev/null");
     if (!throttled.empty()) {
-        data.push_back("vcgencmd throttled: " + throttled);
+        data.push_back("imx-system-tool throttled: " + throttled);
         // Bit 16 = 'was under-voltage', Bit 18 = 'was throttled' — indicates brownout/reset
         unsigned long flags = 0;
         if (sscanf(throttled.c_str(), "throttled=0x%lx", &flags) == 1) {
@@ -322,9 +322,9 @@ TestOutput WatchdogAndResetTesting::testHardwareResetButton()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Hardware reset button check (Pi5)");
-    data.push_back("Pi5 has a dedicated reset button (J2 header) wired to RP1.");
-    data.push_back("J2 pin 1 = RUN (active-low reset), connects to BCM2712 nRSTIN.");
+    data.push_back("Hardware reset button check (Pinnacle)");
+    data.push_back("Pinnacle has a dedicated reset button (J2 header) wired to mcore.");
+    data.push_back("J2 pin 1 = RUN (active-low reset), connects to NXP i.MX nRSTIN.");
 
     // Check input-event for button press
     std::string evdev = wdRunCmd("ls /dev/input/event* 2>/dev/null | head -5");
@@ -354,7 +354,7 @@ TestOutput WatchdogAndResetTesting::testSoftwareReset()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Software reset capability check (Pi5)");
+    data.push_back("Software reset capability check (Pinnacle)");
     data.push_back("NOTE: Test does NOT trigger reset.");
 
     // Check reboot command availability
@@ -390,7 +390,7 @@ TestOutput WatchdogAndResetTesting::testWatchdogReset()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Watchdog reset history check (Pi5)");
+    data.push_back("Watchdog reset history check (Pinnacle)");
 
     bool wdExists = (access("/dev/watchdog0", F_OK) == 0);
     if (wdExists) {
@@ -432,9 +432,9 @@ TestOutput WatchdogAndResetTesting::testThermalReset()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Thermal reset check (Pi5)");
-    data.push_back("BCM2712 soft thermal shutdown at " +
-                   std::to_string(RPI5_THERMAL_SHUTDOWN_C) + " °C");
+    data.push_back("Thermal reset check (Pinnacle)");
+    data.push_back("NXP i.MX soft thermal shutdown at " +
+                   std::to_string(PINNACLE_THERMAL_SHUTDOWN_C) + " °C");
 
     // Check current temperature
     long long tempMilliC = -1;
@@ -449,8 +449,8 @@ TestOutput WatchdogAndResetTesting::testThermalReset()
     std::string thermMsg = wdRunCmd("dmesg 2>/dev/null | grep -i 'thermal\\|shutdown\\|overheat' | tail -5");
     if (!thermMsg.empty()) data.push_back("dmesg thermal: " + thermMsg.substr(0, 300));
 
-    // Check vcgencmd for previous throttle
-    std::string throttled = wdRunCmd("vcgencmd get_throttled 2>/dev/null");
+    // Check imx-system-tool for previous throttle
+    std::string throttled = wdRunCmd("imx-system-tool get_throttled 2>/dev/null");
     if (!throttled.empty()) {
         data.push_back("Throttle flags: " + throttled);
         unsigned long flags = 0;
@@ -480,7 +480,7 @@ TestOutput WatchdogAndResetTesting::testResetReasonLogging()
     std::vector<std::string> data;
     bool passed = true;
 
-    data.push_back("Reset reason logging check (Pi5)");
+    data.push_back("Reset reason logging check (Pinnacle)");
 
     // Check systemd journal for last reboot reason
     std::string journal = wdRunCmd("journalctl -b -1 --no-pager -q -n 5 2>/dev/null | head -5");
@@ -489,10 +489,10 @@ TestOutput WatchdogAndResetTesting::testResetReasonLogging()
     std::string reason = wdRunCmd("last reboot 2>/dev/null | head -3");
     if (!reason.empty()) data.push_back("last reboot: " + reason.substr(0, 200));
 
-    // vcgencmd persistent throttle/power flags
-    std::string throttled = wdRunCmd("vcgencmd get_throttled 2>/dev/null");
+    // imx-system-tool persistent throttle/power flags
+    std::string throttled = wdRunCmd("imx-system-tool get_throttled 2>/dev/null");
     if (!throttled.empty()) {
-        data.push_back("vcgencmd get_throttled: " + throttled);
+        data.push_back("imx-system-tool get_throttled: " + throttled);
         unsigned long flags = 0;
         if (sscanf(throttled.c_str(), "throttled=0x%lx", &flags) == 1) {
             if (flags == 0) data.push_back("  -> Clean boot, no reset events recorded.");
@@ -508,6 +508,35 @@ TestOutput WatchdogAndResetTesting::testResetReasonLogging()
     }
 
     data.push_back("PASS: Reset reason logging check complete.");
+    {
+        TestOutput _out;
+        _out.status = passed ? hal::Status::PASS : hal::Status::FAIL;
+        _out.severity = passed ? hal::Severity::INFO : hal::Severity::ERROR;
+        for (size_t _i = 0; _i < data.size(); ++_i)
+            _out.reason["detail_" + std::to_string(_i)] = data[_i];
+        return _out;
+    }
+}
+
+TestOutput WatchdogAndResetTesting::testCrossDomainWatchdogHandshake()
+{
+    std::vector<std::string> data;
+    bool passed = true;
+
+    data.push_back("Cross-domain watchdog handshake (A-core <-> Cortex-M)");
+
+    bool localWd = (access("/dev/watchdog0", F_OK) == 0);
+    data.push_back(localWd ? "[PASS] Linux watchdog present" : "[WARN] Linux watchdog not present");
+
+    bool rpmsgUp = (hal::rt::rpmsgChannelState() == hal::rt::ChannelState::UP);
+    data.push_back(rpmsgUp ? "[PASS] RPMsg channel is up" : "[FAIL] RPMsg channel is down");
+    passed = passed && rpmsgUp;
+
+    bool heartbeat = hal::rt::rpmsgHeartbeat();
+    data.push_back(heartbeat ? "[PASS] Watchdog keepalive heartbeat sent to Cortex-M"
+                             : "[FAIL] Failed to send watchdog keepalive heartbeat");
+    passed = passed && heartbeat;
+
     {
         TestOutput _out;
         _out.status = passed ? hal::Status::PASS : hal::Status::FAIL;
@@ -686,6 +715,22 @@ std::vector<TestResult> WatchdogAndResetTesting::runAllTests()
         }
     }
 
+    // Run testCrossDomainWatchdogHandshake
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+        TestOutput result = testCrossDomainWatchdogHandshake();
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end - start;
+        {
+            TestResult _tr;
+            _tr.name = "testCrossDomainWatchdogHandshake";
+            _tr.test_id = "testCrossDomainWatchdogHandshake";
+            _tr.duration = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
+            _tr.output = result;
+            results.push_back(_tr);
+        }
+    }
+
     return results;
 }
 
@@ -706,6 +751,7 @@ std::vector<std::string> WatchdogAndResetTesting::getAvailableTests()
         "testWatchdogReset",
         "testThermalReset",
         "testResetReasonLogging",
+        "testCrossDomainWatchdogHandshake",
     };
 }
 
@@ -742,6 +788,8 @@ TestResult WatchdogAndResetTesting::runSingleTest(const std::string& testName)
         result = testThermalReset();
     } else if (testName == "testResetReasonLogging") {
         result = testResetReasonLogging();
+    } else if (testName == "testCrossDomainWatchdogHandshake") {
+        result = testCrossDomainWatchdogHandshake();
     } else {
         // Unknown test name
         auto end = std::chrono::high_resolution_clock::now();

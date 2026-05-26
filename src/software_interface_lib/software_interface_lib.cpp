@@ -1,15 +1,15 @@
 /**
  * @file software_interface_lib.cpp
- * @brief Software interface tests for Raspberry Pi 5 (BCM2712).
+ * @brief Software interface tests for Pinnacle i.MX (NXP i.MX).
  *        Verifies kernel boot, driver loading, systemd services, V4L2/ALSA
  *        multimedia frameworks, and sensor subsystem.  CUDA/cuDNN/TensorRT are
- *        NVIDIA-specific and not present on Pi5; those tests document the
- *        equivalent Pi5 accelerator stack (VideoCore VII / libcamera / MMAL).
+ *        NVIDIA-specific and not present on Pinnacle; those tests document the
+ *        equivalent Pinnacle accelerator stack (VideoCore VII / libcamera / MMAL).
  * @author sandesh ghimire
  * @copyright (C) Soccentric LLC */
 
 #include "software_interface_lib.h"
-#include "../platform_rpi5.h"
+#include "../platform_pinnacle.h"
 
 #include <array>
 #include <cstdio>
@@ -73,15 +73,15 @@ SoftwareInterfaceTesting::~SoftwareInterfaceTesting()
 }
 
 /**
- * @brief Verify that the Linux kernel booted successfully on Pi5.
+ * @brief Verify that the Linux kernel booted successfully on Pinnacle.
  * @details Reads /proc/version for kernel identification, checks uptime > 0,
- *          and reads /boot/firmware/config.txt (Pi5 firmware config) for
+ *          and reads /boot/firmware/config.txt (Pinnacle firmware config) for
  *          key boot parameters.
  */
 TestOutput SoftwareInterfaceTesting::testLinuxKernelBoot()
 {
     std::vector<std::string> data;
-    data.push_back("=== Linux Kernel Boot (Raspberry Pi 5) ===");
+    data.push_back("=== Linux Kernel Boot (Pinnacle i.MX) ===");
 
     // Kernel version
     std::string kver = swReadFile("/proc/version");
@@ -107,11 +107,11 @@ TestOutput SoftwareInterfaceTesting::testLinuxKernelBoot()
         data.push_back("[PASS] Uptime: " + std::to_string(static_cast<int>(uptime)) + "s");
     }
 
-    // Pi5 firmware config
+    // Pinnacle firmware config
     const std::string cfgPath = "/boot/firmware/config.txt";
     if (swPathExists(cfgPath))
     {
-        data.push_back("[PASS] Pi5 firmware config found: " + cfgPath);
+        data.push_back("[PASS] Pinnacle firmware config found: " + cfgPath);
         // Check for arm_64bit or dtoverlay entries
         std::string grep = swRunCmd("grep -c 'arm_64bit\\|dtoverlay\\|dtparam' " + cfgPath + " 2>/dev/null");
         data.push_back("[INFO] config.txt relevant lines: " + grep);
@@ -121,7 +121,7 @@ TestOutput SoftwareInterfaceTesting::testLinuxKernelBoot()
         data.push_back("[INFO] /boot/firmware/config.txt not found (may be mounted elsewhere)");
     }
 
-    // BCM2712 platform device tree
+    // NXP i.MX platform device tree
     std::string dtModel = swReadFile("/proc/device-tree/model");
     if (!dtModel.empty())
         data.push_back("[PASS] Device tree model: " + dtModel);
@@ -139,23 +139,23 @@ TestOutput SoftwareInterfaceTesting::testLinuxKernelBoot()
 }
 
 /**
- * @brief Verify Pi5-specific kernel drivers are loaded.
- * @details Checks /proc/modules (or lsmod) for key Pi5 drivers:
- *          bcm2712, rp1 (south-bridge), v3d (GPU), bcm2835_dma, nvme, xhci_hcd.
+ * @brief Verify Pinnacle-specific kernel drivers are loaded.
+ * @details Checks /proc/modules (or lsmod) for key Pinnacle drivers:
+ *          imx9, mcore (south-bridge), v3d (GPU), imx_dma, nvme, xhci_hcd.
  */
 TestOutput SoftwareInterfaceTesting::testDeviceDriverLoading()
 {
     std::vector<std::string> data;
-    data.push_back("=== Pi5 Device Driver Loading ===");
+    data.push_back("=== Pinnacle Device Driver Loading ===");
 
     static const std::vector<std::pair<std::string, std::string>> drivers = {
         {"v3d",           "VideoCore VII GPU"},
         {"nvme",          "NVMe/PCIe storage"},
         {"xhci_hcd",      "USB3 xHCI host"},
-        {"bcm2835_dma",   "DMA engine"},
-        {"snd_bcm2835",   "BCM2835 ALSA audio"},
+        {"imx_dma",   "DMA engine"},
+        {"snd_imx",   "i.MX ALSA audio"},
         {"brcmfmac",      "BCM WiFi (optional)"},
-        {"gpio_brcmstb",  "GPIO (Pi5 gpiochip4)"},
+        {"gpio_brcmstb",  "GPIO (Pinnacle gpiochip4)"},
     };
 
     bool anyLoaded = false;
@@ -199,14 +199,14 @@ TestOutput SoftwareInterfaceTesting::testDeviceDriverLoading()
 }
 
 /**
- * @brief Verify that critical systemd services are active on Pi5.
+ * @brief Verify that critical systemd services are active on Pinnacle.
  * @details Checks systemd unit state for ssh, dbus, networking, and
- *          raspberry-pi-specific services (raspi-config, pigpiod if present).
+ *          raspberry-pi-specific services (raspi-config, libgpiodd if present).
  */
 TestOutput SoftwareInterfaceTesting::testSystemServiceStartup()
 {
     std::vector<std::string> data;
-    data.push_back("=== Systemd Service Startup (Pi5) ===");
+    data.push_back("=== Systemd Service Startup (Pinnacle) ===");
 
     // Check if systemd is running
     if (!swPathExists("/run/systemd/private"))
@@ -254,15 +254,15 @@ TestOutput SoftwareInterfaceTesting::testSystemServiceStartup()
 }
 
 /**
- * @brief Verify user-space application frameworks on Pi5.
- * @details Checks presence of libcamera (Pi5 camera stack), GStreamer
+ * @brief Verify user-space application frameworks on Pinnacle.
+ * @details Checks presence of libcamera (Pinnacle camera stack), GStreamer
  *          (multimedia pipeline), and Python3 (scripting framework).
  *          Reports library versions where available.
  */
 TestOutput SoftwareInterfaceTesting::testApplicationFramework()
 {
     std::vector<std::string> data;
-    data.push_back("=== Application Framework (Pi5) ===");
+    data.push_back("=== Application Framework (Pinnacle) ===");
 
     // libcamera
     std::string lcVer = swRunCmd("libcamera-hello --version 2>&1 | head -1");
@@ -285,12 +285,12 @@ TestOutput SoftwareInterfaceTesting::testApplicationFramework()
     else
         data.push_back("[INFO] python3 not found");
 
-    // Raspberry Pi user-land tools
-    std::string vcPath = swRunCmd("which vcgencmd 2>/dev/null");
+    // Pinnacle i.MX user-land tools
+    std::string vcPath = swRunCmd("which imx-system-tool 2>/dev/null");
     if (!vcPath.empty())
-        data.push_back("[PASS] vcgencmd available: " + vcPath);
+        data.push_back("[PASS] imx-system-tool available: " + vcPath);
     else
-        data.push_back("[INFO] vcgencmd not found (rpi-userland not installed)");
+        data.push_back("[INFO] imx-system-tool not found (rpi-userland not installed)");
 
     {
         TestOutput _out;
@@ -303,14 +303,14 @@ TestOutput SoftwareInterfaceTesting::testApplicationFramework()
 }
 
 /**
- * @brief Verify multi-user support on Pi5.
+ * @brief Verify multi-user support on Pinnacle.
  * @details Reads /etc/passwd for user count, checks /etc/shadow accessibility,
  *          verifies PAM modules are present, and confirms login services.
  */
 TestOutput SoftwareInterfaceTesting::testMultiuserSupport()
 {
     std::vector<std::string> data;
-    data.push_back("=== Multi-User Support (Pi5) ===");
+    data.push_back("=== Multi-User Support (Pinnacle) ===");
 
     // Count real user accounts (UID >= 1000)
     std::string userCount = swRunCmd("awk -F: '$3>=1000 && $3<65534{c++} END{print c+0}' /etc/passwd 2>/dev/null");
@@ -343,16 +343,16 @@ TestOutput SoftwareInterfaceTesting::testMultiuserSupport()
 }
 
 /**
- * @brief Test CUDA runtime availability on Pi5.
- * @details Pi5 does NOT have an NVIDIA GPU and therefore has no CUDA runtime.
- *          This test documents the Pi5 equivalent — VideoCore VII OpenCL/GLES
+ * @brief Test CUDA runtime availability on Pinnacle.
+ * @details Pinnacle does NOT have an NVIDIA GPU and therefore has no CUDA runtime.
+ *          This test documents the Pinnacle equivalent — VideoCore VII OpenCL/GLES
  *          — and checks for v3d driver and mesa OpenCL.
  */
 TestOutput SoftwareInterfaceTesting::testCudaRuntime()
 {
     std::vector<std::string> data;
-    data.push_back("=== GPU Compute Runtime (Pi5 — no CUDA) ===");
-    data.push_back("[INFO] Pi5 BCM2712 uses VideoCore VII GPU, not NVIDIA — CUDA is N/A");
+    data.push_back("=== GPU Compute Runtime (Pinnacle — no CUDA) ===");
+    data.push_back("[INFO] Pinnacle NXP i.MX uses VideoCore VII GPU, not NVIDIA — CUDA is N/A");
 
     // Check v3d driver (VideoCore VII)
     bool v3dLoaded = swPathExists("/sys/module/v3d") ||
@@ -384,15 +384,15 @@ TestOutput SoftwareInterfaceTesting::testCudaRuntime()
 }
 
 /**
- * @brief Test cuDNN library on Pi5.
- * @details cuDNN is NVIDIA-specific and not present on Pi5.  Documents the
- *          Pi5-equivalent: ONNX Runtime + TFLite inference engines.
+ * @brief Test cuDNN library on Pinnacle.
+ * @details cuDNN is NVIDIA-specific and not present on Pinnacle.  Documents the
+ *          Pinnacle-equivalent: ONNX Runtime + TFLite inference engines.
  */
 TestOutput SoftwareInterfaceTesting::testCudnnLibrary()
 {
     std::vector<std::string> data;
-    data.push_back("=== Neural-Network Library (Pi5 — no cuDNN) ===");
-    data.push_back("[INFO] Pi5 has no cuDNN; equivalent: ONNX Runtime / TFLite");
+    data.push_back("=== Neural-Network Library (Pinnacle — no cuDNN) ===");
+    data.push_back("[INFO] Pinnacle has no cuDNN; equivalent: ONNX Runtime / TFLite");
 
     // TensorFlow Lite
     std::string tflite = swRunCmd("python3 -c 'import tflite_runtime; print(tflite_runtime.__version__)' 2>/dev/null");
@@ -424,15 +424,15 @@ TestOutput SoftwareInterfaceTesting::testCudnnLibrary()
 }
 
 /**
- * @brief Test TensorRT inference on Pi5.
- * @details TensorRT is NVIDIA-specific.  Pi5 equivalent is Hailo-8 HAT (optional)
+ * @brief Test TensorRT inference on Pinnacle.
+ * @details TensorRT is NVIDIA-specific.  Pinnacle equivalent is Hailo-8 HAT (optional)
  *          or software inference via TFLite + XNNPACK / ONNX Runtime ARM NEON.
  */
 TestOutput SoftwareInterfaceTesting::testTensorrtInference()
 {
     std::vector<std::string> data;
-    data.push_back("=== Inference Runtime (Pi5 — no TensorRT) ===");
-    data.push_back("[INFO] TensorRT is NVIDIA-specific; Pi5 uses TFLite/ONNX + optional Hailo-8 HAT");
+    data.push_back("=== Inference Runtime (Pinnacle — no TensorRT) ===");
+    data.push_back("[INFO] TensorRT is NVIDIA-specific; Pinnacle uses TFLite/ONNX + optional Hailo-8 HAT");
 
     // Check for Hailo device
     bool hailoPresent = swPathExists("/dev/hailo0");
@@ -460,15 +460,15 @@ TestOutput SoftwareInterfaceTesting::testTensorrtInference()
 }
 
 /**
- * @brief Test VPI (NVIDIA Vision Programming Interface) on Pi5.
- * @details VPI is NVIDIA-specific.  Pi5 equivalent is libcamera IPA
+ * @brief Test VPI (NVIDIA Vision Programming Interface) on Pinnacle.
+ * @details VPI is NVIDIA-specific.  Pinnacle equivalent is libcamera IPA
  *          + OpenCV + ISP pipeline via Unicam.
  */
 TestOutput SoftwareInterfaceTesting::testVpi()
 {
     std::vector<std::string> data;
-    data.push_back("=== Vision Processing Interface (Pi5 — no NVIDIA VPI) ===");
-    data.push_back("[INFO] NVIDIA VPI not applicable; Pi5 uses libcamera + ISP + V4L2");
+    data.push_back("=== Vision Processing Interface (Pinnacle — no NVIDIA VPI) ===");
+    data.push_back("[INFO] NVIDIA VPI not applicable; Pinnacle uses libcamera + ISP + V4L2");
 
     // Check for libcamera IPA
     bool ipaPresent = swPathExists("/usr/lib/libcamera") ||
@@ -498,14 +498,14 @@ TestOutput SoftwareInterfaceTesting::testVpi()
 }
 
 /**
- * @brief Test multimedia API (V4L2, ALSA, GStreamer, MMAL) on Pi5.
+ * @brief Test multimedia API (V4L2, ALSA, GStreamer, MMAL) on Pinnacle.
  * @details Checks V4L2 codecs, ALSA sound cards, and MMAL/GStreamer pipelines
- *          available through the RP1 audio/video subsystem.
+ *          available through the mcore audio/video subsystem.
  */
 TestOutput SoftwareInterfaceTesting::testMultimediaApi()
 {
     std::vector<std::string> data;
-    data.push_back("=== Multimedia API (Pi5 V4L2/ALSA/GStreamer) ===");
+    data.push_back("=== Multimedia API (Pinnacle V4L2/ALSA/GStreamer) ===");
 
     // V4L2
     std::string v4l2Out = swRunCmd("v4l2-ctl --list-devices 2>/dev/null | head -4");
@@ -525,7 +525,7 @@ TestOutput SoftwareInterfaceTesting::testMultimediaApi()
 
     // HDMI audio (vc4-hdmi)
     bool hdmiAudio = swPathExists("/proc/asound") &&
-                     swRunCmd("grep -l 'vc4-hdmi\\|bcm2835' /proc/asound/cards 2>/dev/null | wc -l") != "0";
+                     swRunCmd("grep -l 'vc4-hdmi\\|imx' /proc/asound/cards 2>/dev/null | wc -l") != "0";
     (void)hdmiAudio;
 
     // GStreamer pipeline test (fakesrc → fakesink, no hardware needed)
@@ -544,7 +544,7 @@ TestOutput SoftwareInterfaceTesting::testMultimediaApi()
 }
 
 /**
- * @brief Test sensor driver framework on Pi5.
+ * @brief Test sensor driver framework on Pinnacle.
  * @details Checks IIO (Industrial I/O) subsystem and input subsystem for
  *          sensor drivers accessible via /sys/bus/iio/devices and
  *          /sys/class/input.  Also checks lm-sensors/hwmon.
@@ -552,13 +552,13 @@ TestOutput SoftwareInterfaceTesting::testMultimediaApi()
 TestOutput SoftwareInterfaceTesting::testSensorDriverFramework()
 {
     std::vector<std::string> data;
-    data.push_back("=== Sensor Driver Framework (Pi5 IIO / hwmon) ===");
+    data.push_back("=== Sensor Driver Framework (Pinnacle IIO / hwmon) ===");
 
     // IIO devices
     std::string iioCount = swRunCmd("ls /sys/bus/iio/devices/ 2>/dev/null | wc -l");
     data.push_back("[INFO] IIO devices: " + iioCount);
 
-    // hwmon sensors (BCM2712 thermal + MXL7704 PMIC)
+    // hwmon sensors (NXP i.MX thermal + MXL7704 PMIC)
     std::string hwmonCount = swRunCmd("ls /sys/class/hwmon/ 2>/dev/null | wc -l");
     data.push_back("[INFO] hwmon devices: " + hwmonCount);
     if (std::stoi(hwmonCount.empty() ? "0" : hwmonCount) > 0)

@@ -5,7 +5,7 @@
  * @copyright (C) Soccentric LLC */
 
 #include "gpio_lib.h"
-#include "../platform_rpi5.h"
+#include "../platform_pinnacle.h"
 
 /**
  * @brief Constructor for GpioTesting

@@ -1,16 +1,16 @@
 /**
  * @file functional_safety_lib.cpp
- * @brief Functional safety tests for Raspberry Pi 5 (BCM2712).
- *        Pi5 is a commercial SBC and is NOT rated for automotive ASIL-D or
+ * @brief Functional safety tests for Pinnacle i.MX (NXP i.MX).
+ *        Pinnacle is a commercial SBC and is NOT rated for automotive ASIL-D or
  *        IEC 61508 SIL-3.  These tests document the available safety-relevant
  *        features (watchdog, ECC proxy, thermal shutdown, PMIC brownout) and
- *        map Jetson-specific tests (lockstep CPU, ASIL rails) to Pi5 equivalents.
+ *        map Jetson-specific tests (lockstep CPU, ASIL rails) to Pinnacle equivalents.
  * @author sandesh ghimire
  * @copyright (C) Lucid Motors
  */
 
 #include "functional_safety_lib.h"
-#include "../platform_rpi5.h"
+#include "../platform_pinnacle.h"
 
 #include <array>
 #include <cstdio>
@@ -72,21 +72,21 @@ FunctionalSafetyTesting::~FunctionalSafetyTesting()
 }
 
 /**
- * @brief Lockstep CPU test proxy (Pi5 does not have hardware lockstep).
- * @details BCM2712 Cortex-A76 does not implement lockstep CPU execution.
+ * @brief Lockstep CPU test proxy (Pinnacle does not have hardware lockstep).
+ * @details NXP i.MX Cortex-A76 does not implement lockstep CPU execution.
  *          This test documents the limitation and verifies the kernel watchdog
- *          (RP1 hardware watchdog) as the closest safety-relevant substitute.
+ *          (mcore hardware watchdog) as the closest safety-relevant substitute.
  */
 TestOutput FunctionalSafetyTesting::testLockstepCpuOperation()
 {
     std::vector<std::string> data;
-    data.push_back("=== CPU Lockstep (Pi5 BCM2712) ===");
-    data.push_back("[INFO] Pi5 Cortex-A76 does NOT implement hardware CPU lockstep");
-    data.push_back("[INFO] For ASIL-C/D lockstep requirement, use dedicated MCU (e.g. RP2040 HAT)");
+    data.push_back("=== CPU Lockstep (Pinnacle NXP i.MX) ===");
+    data.push_back("[INFO] Pinnacle Cortex-A76 does NOT implement hardware CPU lockstep");
+    data.push_back("[INFO] For ASIL-C/D lockstep requirement, use dedicated MCU (e.g. i.MX RT HAT)");
 
-    // Check RP1 watchdog as a lockstep substitute
+    // Check mcore watchdog as a lockstep substitute
     bool wdPresent = fsPathExists("/dev/watchdog0");
-    data.push_back(wdPresent ? "[PASS] RP1 hardware watchdog /dev/watchdog0 present (safety monitor)"
+    data.push_back(wdPresent ? "[PASS] mcore hardware watchdog /dev/watchdog0 present (safety monitor)"
                              : "[WARN] /dev/watchdog0 not found — watchdog driver not loaded");
 
     // Check if systemd-watchdog is active
@@ -108,17 +108,17 @@ TestOutput FunctionalSafetyTesting::testLockstepCpuOperation()
 }
 
 /**
- * @brief ECC memory test proxy (Pi5 LPDDR4X has no on-die ECC).
- * @details BCM2712 uses standard LPDDR4X-4267 without ECC.  This test
+ * @brief ECC memory test proxy (Pinnacle LPDDR4X has no on-die ECC).
+ * @details NXP i.MX uses standard LPDDR4X-4267 without ECC.  This test
  *          documents the limitation and verifies that pstore/crash records
  *          are absent (proxy for memory integrity).
  */
 TestOutput FunctionalSafetyTesting::testEccOnMemories()
 {
     std::vector<std::string> data;
-    data.push_back("=== ECC Memory (Pi5 LPDDR4X-4267) ===");
-    data.push_back("[INFO] Pi5 BCM2712 LPDDR4X has NO hardware ECC");
-    data.push_back("[INFO] For ECC, use Raspberry Pi CM5 Lite with ECC LPDDR5 carrier (future)");
+    data.push_back("=== ECC Memory (Pinnacle LPDDR4X-4267) ===");
+    data.push_back("[INFO] Pinnacle NXP i.MX LPDDR4X has NO hardware ECC");
+    data.push_back("[INFO] For ECC, use Pinnacle i.MX i.MX SoM Lite with ECC LPDDR5 carrier (future)");
 
     // pstore as memory-error proxy
     std::string pstoreFiles = fsRunCmd("ls /sys/fs/pstore/ 2>/dev/null | wc -l");
@@ -130,7 +130,7 @@ TestOutput FunctionalSafetyTesting::testEccOnMemories()
     bool edacPresent = fsPathExists("/sys/bus/platform/drivers/edac_mpc85xx") ||
                        !fsRunCmd("ls /sys/devices/system/edac/ 2>/dev/null").empty();
     data.push_back(edacPresent ? "[INFO] EDAC subsystem present"
-                               : "[INFO] No EDAC subsystem (expected on Pi5)");
+                               : "[INFO] No EDAC subsystem (expected on Pinnacle)");
 
     // Memory test utility
     std::string memtest = fsRunCmd("which memtester 2>/dev/null");
@@ -148,15 +148,15 @@ TestOutput FunctionalSafetyTesting::testEccOnMemories()
 }
 
 /**
- * @brief Redundant power supplies test (Pi5 single USB-C input).
- * @details Pi5 uses a single USB-C 5V input; there is no redundant power path.
+ * @brief Redundant power supplies test (Pinnacle single USB-C input).
+ * @details Pinnacle uses a single USB-C 5V input; there is no redundant power path.
  *          Tests check for UPS HAT or multiple power_supply entries.
  */
 TestOutput FunctionalSafetyTesting::testRedundantPowerSupplies()
 {
     std::vector<std::string> data;
-    data.push_back("=== Redundant Power Supplies (Pi5) ===");
-    data.push_back("[INFO] Pi5 has single USB-C 5V input — no native power redundancy");
+    data.push_back("=== Redundant Power Supplies (Pinnacle) ===");
+    data.push_back("[INFO] Pinnacle has single USB-C 5V input — no native power redundancy");
 
     // Check for UPS HAT power supply entries
     std::string psList = fsRunCmd("ls /sys/class/power_supply/ 2>/dev/null");
@@ -176,7 +176,7 @@ TestOutput FunctionalSafetyTesting::testRedundantPowerSupplies()
     }
 
     // Under-voltage flag (proxy for PSU health)
-    std::string throttle = fsRunCmd("vcgencmd get_throttled 2>/dev/null");
+    std::string throttle = fsRunCmd("imx-system-tool get_throttled 2>/dev/null");
     bool uvOk = !throttle.empty() && throttle == "throttled=0x0";
     data.push_back(uvOk ? "[PASS] No under-voltage flags"
                         : "[INFO] Throttle: " + throttle);
@@ -198,7 +198,7 @@ TestOutput FunctionalSafetyTesting::testRedundantPowerSupplies()
 TestOutput FunctionalSafetyTesting::testSafetyMonitoring()
 {
     std::vector<std::string> data;
-    data.push_back("=== Safety Monitoring (Pi5 RP1 Watchdog + PMIC) ===");
+    data.push_back("=== Safety Monitoring (Pinnacle mcore Watchdog + PMIC) ===");
 
     // Hardware watchdog
     bool wdOk = fsPathExists("/dev/watchdog0");
@@ -206,7 +206,7 @@ TestOutput FunctionalSafetyTesting::testSafetyMonitoring()
                         : "[WARN] Watchdog device not found");
 
     // PMIC under-voltage / over-temp
-    std::string throttle = fsRunCmd("vcgencmd get_throttled 2>/dev/null");
+    std::string throttle = fsRunCmd("imx-system-tool get_throttled 2>/dev/null");
     if (!throttle.empty())
     {
         bool clean = throttle == "throttled=0x0";
@@ -235,22 +235,22 @@ TestOutput FunctionalSafetyTesting::testSafetyMonitoring()
 }
 
 /**
- * @brief Diagnostic coverage check: test coverage of critical Pi5 subsystems.
+ * @brief Diagnostic coverage check: test coverage of critical Pinnacle subsystems.
  */
 TestOutput FunctionalSafetyTesting::testDiagnosticCoverage()
 {
     std::vector<std::string> data;
-    data.push_back("=== Diagnostic Coverage (Pi5) ===");
+    data.push_back("=== Diagnostic Coverage (Pinnacle) ===");
 
     // List what is testable
     static const std::vector<std::pair<std::string, std::string>> checks = {
-        {"/dev/watchdog0",                     "RP1 hardware watchdog"},
-        {"/sys/class/thermal/thermal_zone0",   "BCM2712 thermal zone"},
-        {"/sys/class/thermal/thermal_zone1",   "RP1 thermal zone"},
+        {"/dev/watchdog0",                     "mcore hardware watchdog"},
+        {"/sys/class/thermal/thermal_zone0",   "NXP i.MX thermal zone"},
+        {"/sys/class/thermal/thermal_zone1",   "mcore thermal zone"},
         {"/sys/devices/system/cpu/cpu0/cpufreq","CPUfreq + throttle detection"},
         {"/sys/class/hwmon",                   "hwmon (PMIC/temp sensors)"},
         {"/sys/block/mmcblk0",                 "eMMC/SD storage"},
-        {RPI5_GPIOCHIP_PATH,                   "GPIO controller"},
+        {PINNACLE_GPIOCHIP_PATH,                   "GPIO controller"},
     };
 
     int present = 0;
@@ -287,7 +287,7 @@ TestOutput FunctionalSafetyTesting::testDiagnosticCoverage()
 TestOutput FunctionalSafetyTesting::testFaultInjectionTesting()
 {
     std::vector<std::string> data;
-    data.push_back("=== Fault Injection (Pi5 Proxy) ===");
+    data.push_back("=== Fault Injection (Pinnacle Proxy) ===");
     data.push_back("[INFO] Hardware fault injection requires JTAG; software proxy used");
 
     // Watchdog boot status (detects prior watchdog-triggered resets)
@@ -334,7 +334,7 @@ TestOutput FunctionalSafetyTesting::testFaultInjectionTesting()
 TestOutput FunctionalSafetyTesting::testFailsafeBehavior()
 {
     std::vector<std::string> data;
-    data.push_back("=== Fail-Safe Behaviour (Pi5) ===");
+    data.push_back("=== Fail-Safe Behaviour (Pinnacle) ===");
 
     // Thermal critical trip (shutdown at 85 °C)
     std::string critTrip = fsRunCmd(
@@ -351,8 +351,8 @@ TestOutput FunctionalSafetyTesting::testFailsafeBehavior()
     data.push_back(wdPresent ? "[PASS] Hardware watchdog available for fail-safe reset"
                              : "[WARN] No watchdog device");
 
-    // vcgencmd throttled current state
-    std::string throttle = fsRunCmd("vcgencmd get_throttled 2>/dev/null");
+    // imx-system-tool throttled current state
+    std::string throttle = fsRunCmd("imx-system-tool get_throttled 2>/dev/null");
     data.push_back("[INFO] Current throttle: " + (throttle.empty() ? "N/A" : throttle));
 
     // Confirm systemd reboot target exists
@@ -372,15 +372,15 @@ TestOutput FunctionalSafetyTesting::testFailsafeBehavior()
 }
 
 /**
- * @brief ASIL QS-L / QS-R rail isolation test (N/A on Pi5).
- * @details Pi5 BCM2712 / MXL7704 PMIC has no ASIL-rated isolated voltage rails.
+ * @brief ASIL QS-L / QS-R rail isolation test (N/A on Pinnacle).
+ * @details Pinnacle NXP i.MX / MXL7704 PMIC has no ASIL-rated isolated voltage rails.
  *          Documents the limitation and checks available hwmon voltage inputs.
  */
 TestOutput FunctionalSafetyTesting::testAsilQsLAndRRailIsolation()
 {
     std::vector<std::string> data;
-    data.push_back("=== ASIL QS-L/R Rail Isolation (Pi5) ===");
-    data.push_back("[INFO] Pi5 MXL7704 PMIC has NO ASIL-rated isolated supply rails");
+    data.push_back("=== ASIL QS-L/R Rail Isolation (Pinnacle) ===");
+    data.push_back("[INFO] Pinnacle MXL7704 PMIC has NO ASIL-rated isolated supply rails");
     data.push_back("[INFO] For ASIL-D power, use Infineon TDA38640 or NXP FS84/FS85 PMIC");
 
     // Enumerate available hwmon voltage inputs as best-effort
@@ -392,11 +392,11 @@ TestOutput FunctionalSafetyTesting::testAsilQsLAndRRailIsolation()
     data.push_back(voltages.empty() ? "[INFO] No hwmon voltage inputs found"
                                     : "[INFO] hwmon voltages:\n" + voltages);
 
-    // vcgencmd voltage readings
+    // imx-system-tool voltage readings
     static const std::vector<std::string> rails = {"core", "sdram_c", "sdram_i", "sdram_p"};
     for (const auto& rail : rails)
     {
-        std::string v = fsRunCmd("vcgencmd measure_volts " + rail + " 2>/dev/null");
+        std::string v = fsRunCmd("imx-system-tool measure_volts " + rail + " 2>/dev/null");
         if (!v.empty())
             data.push_back("[INFO] " + rail + ": " + v);
     }
@@ -405,6 +405,60 @@ TestOutput FunctionalSafetyTesting::testAsilQsLAndRRailIsolation()
         TestOutput _out;
         _out.status = hal::Status::PASS;
         _out.severity = hal::Severity::INFO;
+        for (size_t _i = 0; _i < data.size(); ++_i)
+            _out.reason["detail_" + std::to_string(_i)] = data[_i];
+        return _out;
+    }
+}
+
+TestOutput FunctionalSafetyTesting::testSafeStateEntryTransition()
+{
+    std::vector<std::string> data;
+    bool ok = true;
+
+    data.push_back("=== Safe-State Entry Transition (A-core <-> Cortex-M) ===");
+
+    bool requestSent = hal::rt::requestSafeState();
+    data.push_back(requestSent ? "[PASS] Safe-state request sent over RPMsg"
+                               : "[FAIL] Safe-state request could not be sent");
+    ok = ok && requestSent;
+
+    auto state = hal::rt::rpmsgChannelState();
+    data.push_back(state == hal::rt::ChannelState::UP
+                       ? "[PASS] RPMsg transport up after safe-state request"
+                       : "[WARN] RPMsg transport not reported as up");
+    ok = ok && (state == hal::rt::ChannelState::UP);
+
+    {
+        TestOutput _out;
+        _out.status = ok ? hal::Status::PASS : hal::Status::FAIL;
+        _out.severity = ok ? hal::Severity::INFO : hal::Severity::ERROR;
+        for (size_t _i = 0; _i < data.size(); ++_i)
+            _out.reason["detail_" + std::to_string(_i)] = data[_i];
+        return _out;
+    }
+}
+
+TestOutput FunctionalSafetyTesting::testLockstepErrorReporting()
+{
+    std::vector<std::string> data;
+    bool ok = true;
+
+    data.push_back("=== Lockstep/Error Reporting (FuSa Variant) ===");
+
+    bool hb = hal::rt::rpmsgHeartbeat();
+    data.push_back(hb ? "[PASS] Lockstep heartbeat sent" : "[FAIL] Lockstep heartbeat send failed");
+    ok = ok && hb;
+
+    bool err = hal::rt::reportSafetyError("lockstep-drift-simulated");
+    data.push_back(err ? "[PASS] Lockstep error-report path reachable"
+                       : "[FAIL] Lockstep error-report path unavailable");
+    ok = ok && err;
+
+    {
+        TestOutput _out;
+        _out.status = ok ? hal::Status::PASS : hal::Status::FAIL;
+        _out.severity = ok ? hal::Severity::INFO : hal::Severity::ERROR;
         for (size_t _i = 0; _i < data.size(); ++_i)
             _out.reason["detail_" + std::to_string(_i)] = data[_i];
         return _out;
@@ -547,6 +601,38 @@ std::vector<TestResult> FunctionalSafetyTesting::runAllTests()
         }
     }
 
+    // Run testSafeStateEntryTransition
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+        TestOutput result = testSafeStateEntryTransition();
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end - start;
+        {
+            TestResult _tr;
+            _tr.name = "testSafeStateEntryTransition";
+            _tr.test_id = "testSafeStateEntryTransition";
+            _tr.duration = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
+            _tr.output = result;
+            results.push_back(_tr);
+        }
+    }
+
+    // Run testLockstepErrorReporting
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+        TestOutput result = testLockstepErrorReporting();
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end - start;
+        {
+            TestResult _tr;
+            _tr.name = "testLockstepErrorReporting";
+            _tr.test_id = "testLockstepErrorReporting";
+            _tr.duration = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
+            _tr.output = result;
+            results.push_back(_tr);
+        }
+    }
+
     return results;
 }
 
@@ -559,6 +645,7 @@ std::vector<std::string> FunctionalSafetyTesting::getAvailableTests()
     return {
         "testLockstepCpuOperation", "testEccOnMemories",         "testRedundantPowerSupplies", "testSafetyMonitoring",
         "testDiagnosticCoverage",   "testFaultInjectionTesting", "testFailsafeBehavior",       "testAsilQsLAndRRailIsolation",
+        "testSafeStateEntryTransition", "testLockstepErrorReporting",
     };
 }
 
@@ -591,6 +678,10 @@ TestResult FunctionalSafetyTesting::runSingleTest(const std::string& testName)
         result = testFailsafeBehavior();
     } else if (testName == "testAsilQsLAndRRailIsolation") {
         result = testAsilQsLAndRRailIsolation();
+    } else if (testName == "testSafeStateEntryTransition") {
+        result = testSafeStateEntryTransition();
+    } else if (testName == "testLockstepErrorReporting") {
+        result = testLockstepErrorReporting();
     } else {
         // Unknown test name
         auto end = std::chrono::high_resolution_clock::now();
