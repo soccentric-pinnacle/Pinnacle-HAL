@@ -1,15 +1,50 @@
-# Pinnacle HAL ## Overview Pinnacle HAL is a C++17 hardware abstraction and validation suite retargeted to the Pinnacle platform: - NXP i.MX 8M/9 application core on Yocto Linux
-- On/off-chip Cortex-M (i.MX RT class) real-time co-processor
-- A-core <-> M-core communication via RPMsg/OpenAMP The public HAL test-class contract remains intact, while backend implementation and platform bindings are retargeted from legacy board assumptions to Pinnacle i.MX. ## Architecture - A-core domain: Linux-facing probes (sysfs, /dev nodes, net, media, storage)
-- M-core domain: deterministic real-time/safety responsibilities
-- Contract layer: RPMsg/OpenAMP message contract in `src/platform_pinnacle.h`
-- Shared transport helpers: `hal::rt::*` in `src/lib_base.h` and `src/lib_base.cpp` ## Functional-Safety Hooks The FuSa path includes: - Watchdog keepalive path to Cortex-M
-- Safe-state request path
-- Lockstep/error-reporting path
-- Expanded FuSa-oriented tests in: - `src/functional_safety_lib/functional_safety_lib.cpp` - `src/watchdog_and_reset_lib/watchdog_and_reset_lib.cpp` - `src/mcu_interface_lib/mcu_interface_lib.cpp` ## Build ```bash
+# Pinnacle-HAL
+
+## Project Summary
+
+Pinnacle-HAL is the C++17 hardware abstraction and validation library for Pinnacle boards built around NXP i.MX 8M/9 application processors and an optional Cortex-M co-processor.
+
+The `src` tree contains a library and CMake target per hardware domain:
+
+- CPU, GPU, deep-learning, and vision accelerators.
+- Memory, storage, networking, USB, and PCIe.
+- Cameras, displays, audio/video, GPIO, IMU, and GNSS.
+- Power, thermal, watchdog, security, reliability, functional safety, MCU, and system integration.
+
+`src/platform_pinnacle.h` and `lib_base.*` establish the A-core to M-core RPMsg/OpenAMP boundary.
+
+The public test-class contract is retained while probes use Linux sysfs, device nodes, network interfaces, media, and storage. Functional-safety sources include watchdog keepalive, safe-state requests, and error-reporting hooks.
+
+`protos/registry/modules.yaml` describes module identifiers used by Client and SDK. CMake/CPack installs the headers and library as `pinnacle-hal`; the Makefile provides native, Docker, and cross-build routes.
+
+The `tests` tree has per-module CMake targets and executable runners, and the top-level Makefile invokes CTest.
+
+This is a substantial implementation surface, but test executables do not prove every probe returns valid data on a specific board.
+
+Checks depend on kernel interfaces, attached peripherals, firmware, RPMsg endpoints, and safety hardware. The packaged `.deb` does not establish installation or runtime ABI compatibility.
+
+Use `make build`, `make run`, and CTest in a configured target. Then validate connected modules and safety paths on hardware.
+
+## Feature Status
+
+| # | Name / Description | Implemented? | Test Coverage? | Manual Test |
+|---:|---|---|---|---|
+| 1 | Per-module C++ HAL libraries and public test contract | Yes | Per-module CMake test targets exist across `tests` | [ ] Manual verification required |
+| 2 | Linux A-core hardware probes | Yes | Module test executables exist; device results are not fully evidenced | [ ] Manual verification required |
+| 3 | RPMsg/OpenAMP A-core to M-core transport | Partial | Platform and transport code exist; live co-processor communication is unproven | [ ] Manual verification required |
+| 4 | Functional-safety, watchdog, and safe-state hooks | Partial | Dedicated source and test targets exist; safety needs hardware validation | [ ] Manual verification required |
+| 5 | Module registry and test discovery metadata | Yes | Registry YAML and test runners provide coverage scaffolding | [ ] Manual verification required |
+| 6 | CMake, CPack, native, Docker, and cross builds | Yes | Build/test commands are wired; package validation is limited | [ ] Manual verification required |
+
+## Tests and Commands
+
+```bash
 make build
-``` ## Run ```bash
 make run
-``` ## Test ```bash
-ctest --test-dir build
-``` ## Packaging CMake/CPack metadata is retargeted to `pinnacle-hal` and installs headers under `pinnacle_hal`.
+ctest --test-dir build --output-on-failure
+```
+
+## Limitations
+
+- Hardware, kernel configuration, firmware, permissions, and peripherals control the meaningful result.
+- A green build or CTest run is not board-level IV&V.
