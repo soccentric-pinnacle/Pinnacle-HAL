@@ -10,7 +10,7 @@ Pinnacle-HAL is the C++ hardware-abstraction and gRPC contract layer. CMake gene
 - For native tests and packaging: CTest, CPack, and package tools appropriate to the selected generator.
 - For quality/docs: `clang-format`, `cmake-format`, `cppcheck`, `doxygen`, and `graphviz` as required by the checked targets.
 - For Docker: Docker with ARM64/QEMU support; `make docker-install` may use `sudo apt`.
-- For cross deployment: `sshpass`, SSH/SCP access, and Raspberry Pi 5 target addresses. The Makefile defaults to `IP_A=192.168.1.3`, `IP_B=192.168.1.13`, and user/password `nvidia`/`nvidia`; override these and never use defaults as production credentials.
+- For cross deployment: `sshpass`, SSH/SCP access, and Raspberry Pi 5 target addresses. The Makefile defaults to `IP_A=192.168.1.3`, `IP_B=192.168.1.13`, and user `root` with no password (key-based SSH); override with `HAL_SSH_USER`/`HAL_SSH_PASS` and never commit credentials.
 
 ## 2. Setup
 
@@ -64,7 +64,7 @@ make package-ipk
 make package
 ```
 
-These invoke CPack or the `package_ipk` build target after `make build`; outputs are expected in `build/native/` with the `acadia-hal_*` naming emitted by the Makefile. Cross packages:
+These invoke CPack or the `package_ipk` build target after `make build`; outputs are expected in `build/native/` with `pinnacle-hal_*` package names. Cross packages:
 
 ```bash
 make docker-package-deb
@@ -73,7 +73,7 @@ make docker-package-ipk
 make docker-package
 ```
 
-Cross outputs are under `build/cross/`. RPM packaging is conditional on `rpmbuild` in the Docker image/host. Review package names and install metadata before distributing because the current Makefile's status messages retain legacy `acadia-hal` names.
+Cross outputs are under `build/cross/`. RPM packaging is conditional on `rpmbuild` in the Docker image/host. Review package names and install metadata before distributing.
 
 ## 6. Deployment, install, and run
 
